@@ -1,599 +1,117 @@
--- Mellys Farm GUI | Fully Executable LocalScript
--- Place this in StarterPlayerScripts
-
-local Players = game:GetService("Players")
-local Player = Players.LocalPlayer
-local PlayerGui = Player:WaitForChild("PlayerGui")
-local MarketplaceService = game:GetService("MarketplaceService")
-
 --========================
--- GUI ROOT
+-- SUPER LOW GRAPHICS MODE (Safe Version)
 --========================
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "MellysFarmGUI"
-ScreenGui.Parent = PlayerGui
-ScreenGui.IgnoreGuiInset = true
+local Lighting = game:GetService("Lighting")
+local Terrain = workspace.Terrain
 
-local Frame = Instance.new("Frame", ScreenGui)
-Frame.Size = UDim2.fromOffset(560,450)
-Frame.Position = UDim2.fromScale(0.5,0.5)
-Frame.AnchorPoint = Vector2.new(0.5,0.5)
-Frame.BackgroundColor3 = Color3.fromRGB(45,45,45)
-Frame.Active = true
-Frame.Draggable = true
-Instance.new("UICorner",Frame)
-Instance.new("UIStroke",Frame).Transparency = 0.4
+local SuperLowEnabled = false
+local OriginalSettings = {}
 
--- Title (FULL WIDTH)
-local Title = Instance.new("TextLabel", Frame)
-Title.Size = UDim2.new(1, -20, 0, 40) -- full width with padding
-Title.Position = UDim2.fromOffset(10, 10) -- keep margin
-Title.Text = "Mellys Farm"
-Title.Font = Enum.Font.GothamSemibold
-Title.TextSize = 22
-Title.TextColor3 = Color3.fromRGB(240,240,240)
-Title.BackgroundColor3 = Color3.fromRGB(60,60,60)
-Title.TextXAlignment = Enum.TextXAlignment.Center
-Title.TextYAlignment = Enum.TextYAlignment.Center
-Instance.new("UICorner", Title)
+local SuperLowButton = Instance.new("TextButton", FPSSection)
+SuperLowButton.Size = UDim2.new(1,0,0,36)
+SuperLowButton.Text = "Enable SUPER Low Graphics"
+SuperLowButton.Font = Enum.Font.GothamMedium
+SuperLowButton.TextSize = 14
+SuperLowButton.TextColor3 = Color3.fromRGB(235,235,235)
+SuperLowButton.BackgroundColor3 = Color3.fromRGB(120,60,60)
+Instance.new("UICorner", SuperLowButton)
 
-
---========================
--- Tabs
---========================
-local TabBar = Instance.new("Frame",Frame)
-TabBar.Size = UDim2.fromOffset(130,350)
-TabBar.Position = UDim2.fromOffset(10,60)
-TabBar.BackgroundColor3 = Color3.fromRGB(55,55,55)
-Instance.new("UICorner",TabBar)
-local TabLayout = Instance.new("UIListLayout",TabBar)
-TabLayout.Padding = UDim.new(0,6)
-TabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-local UIP = Instance.new("UIPadding",TabBar)
-UIP.PaddingTop = UDim.new(0,8)
-
-local Pages = {}
-
-local function CreateTab(name)
-	local btn = Instance.new("TextButton",TabBar)
-	btn.Size = UDim2.fromOffset(115,36)
-	btn.Text = name
-	btn.Font = Enum.Font.GothamMedium
-	btn.TextSize = 14
-	btn.TextColor3 = Color3.fromRGB(235,235,235)
-	btn.BackgroundColor3 = Color3.fromRGB(70,70,70)
-	Instance.new("UICorner",btn)
-
-	local page = Instance.new("ScrollingFrame",Frame)
-	page.Size = UDim2.fromOffset(390,350)
-	page.Position = UDim2.fromOffset(160,60)
-	page.CanvasSize = UDim2.new(0,0,0,0)
-	page.ScrollBarImageTransparency = 0.3
-	page.BackgroundColor3 = Color3.fromRGB(65,65,65)
-	page.Visible = false
-	Instance.new("UICorner",page)
-
-	btn.MouseButton1Click:Connect(function()
-		for _,p in pairs(Pages) do p.Visible = false end
-		page.Visible = true
-	end)
-
-	Pages[name] = page
-	return page
+-- Save originals once
+local function SaveOriginals()
+	if next(OriginalSettings) then return end
+	OriginalSettings.GlobalShadows = Lighting.GlobalShadows
+	OriginalSettings.Technology = Lighting.Technology
+	OriginalSettings.Brightness = Lighting.Brightness
+	OriginalSettings.EnvironmentDiffuseScale = Lighting.EnvironmentDiffuseScale
+	OriginalSettings.EnvironmentSpecularScale = Lighting.EnvironmentSpecularScale
+	OriginalSettings.WaterTransparency = Terrain.WaterTransparency
+	OriginalSettings.WaterWaveSize = Terrain.WaterWaveSize
+	OriginalSettings.WaterWaveSpeed = Terrain.WaterWaveSpeed
 end
 
-local MainTab = CreateTab("Main")
-local MiscTab = CreateTab("Misc")
-local DupeTab = CreateTab("Dupe")
-local UITab = CreateTab("UI Settings")
-local CreditsTab = CreateTab("Credits")
-MainTab.Visible = true
+SuperLowButton.MouseButton1Click:Connect(function()
+	SuperLowEnabled = not SuperLowEnabled
+	SaveOriginals()
 
-local function SetupPage(page)
-	local pad = Instance.new("UIPadding", page)
-	pad.PaddingTop = UDim.new(0,10)
-	pad.PaddingLeft = UDim.new(0,10)
-	pad.PaddingRight = UDim.new(0,10)
-	local layout = Instance.new("UIListLayout", page)
-	layout.Padding = UDim.new(0,12)
-	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		page.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y)
-	end)
-end
+	if SuperLowEnabled then
+		-- Lighting nuked
+		Lighting.GlobalShadows = false
+		Lighting.Technology = Enum.Technology.Compatibility
+		Lighting.Brightness = 0.5
+		Lighting.EnvironmentDiffuseScale = 0
+		Lighting.EnvironmentSpecularScale = 0
 
-SetupPage(MainTab)
-SetupPage(MiscTab)
-SetupPage(DupeTab)
-SetupPage(UITab)
-SetupPage(CreditsTab)
-
---========================
--- MAIN TAB: Tool Control
---========================
-local function Section(parent,titleText)
-	local section = Instance.new("Frame",parent)
-	section.BackgroundColor3 = Color3.fromRGB(75,75,75)
-	section.Size = UDim2.new(1,0,0,100)
-	Instance.new("UICorner",section)
-
-	local title = Instance.new("TextLabel",section)
-	title.Size = UDim2.new(1,-10,0,24)
-	title.Position = UDim2.fromOffset(5,5)
-	title.Text = titleText
-	title.Font = Enum.Font.GothamBold
-	title.TextSize = 14
-	title.TextColor3 = Color3.fromRGB(240,240,240)
-	title.BackgroundTransparency = 1
-
-	local content = Instance.new("Frame",section)
-	content.Position = UDim2.fromOffset(5,34)
-	content.Size = UDim2.new(1,-10,1,-40)
-	content.BackgroundTransparency = 1
-
-	local layout = Instance.new("UIListLayout",content)
-	layout.Padding = UDim.new(0,8)
-	layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-		section.Size = UDim2.new(1,0,0,layout.AbsoluteContentSize.Y+50)
-	end)
-	return content
-end
-
-local toolSection = Section(MainTab,"Tool Control")
-
-local ToolBox = Instance.new("TextBox",toolSection)
-ToolBox.Size = UDim2.new(1,0,0,36)
-ToolBox.Text = "Double Weight"
-ToolBox.Font = Enum.Font.GothamMedium
-ToolBox.TextColor3 = Color3.fromRGB(235,235,235)
-ToolBox.BackgroundColor3 = Color3.fromRGB(85,85,85)
-Instance.new("UICorner",ToolBox)
-
-local EquipBtn = Instance.new("TextButton",toolSection)
-EquipBtn.Size = UDim2.new(1,0,0,36)
-EquipBtn.Text = "Equip All"
-EquipBtn.Font = Enum.Font.GothamMedium
-EquipBtn.BackgroundColor3 = Color3.fromRGB(90,90,90)
-EquipBtn.TextColor3 = Color3.fromRGB(235,235,235)
-Instance.new("UICorner",EquipBtn)
-
-local UnequipBtn = Instance.new("TextButton",toolSection)
-UnequipBtn.Size = UDim2.new(1,0,0,36)
-UnequipBtn.Text = "Unequip All"
-UnequipBtn.Font = Enum.Font.GothamMedium
-UnequipBtn.BackgroundColor3 = Color3.fromRGB(110,80,80)
-UnequipBtn.TextColor3 = Color3.fromRGB(235,235,235)
-Instance.new("UICorner",UnequipBtn)
-
-local EquippedLabel = Instance.new("TextLabel",toolSection)
-EquippedLabel.Size = UDim2.new(1,0,0,36)
-EquippedLabel.Text = "Equipped: None | Total: 0"
-EquippedLabel.Font = Enum.Font.GothamMedium
-EquippedLabel.TextColor3 = Color3.fromRGB(235,235,235)
-EquippedLabel.TextSize = 14
-EquippedLabel.BackgroundColor3 = Color3.fromRGB(85,85,85)
-Instance.new("UICorner",EquippedLabel)
-
-local function GetCharacter()
-	return Player.Character or Player.CharacterAdded:Wait()
-end
-
-local function UpdateEquippedDisplay()
-	local char = GetCharacter()
-	local equippedTool = nil
-	local totalCount = 0
-	for _, tool in ipairs(char:GetChildren()) do
-		if tool:IsA("Tool") then
-			equippedTool = tool.Name
-			totalCount = totalCount + 1
-		end
-	end
-	for _, tool in ipairs(Player.Backpack:GetChildren()) do
-		if tool:IsA("Tool") and tool.Name == equippedTool then
-			totalCount = totalCount + 1
-		end
-	end
-	EquippedLabel.Text = "Equipped: "..(equippedTool or "None").." | Total: "..totalCount
-end
-
-EquipBtn.MouseButton1Click:Connect(function()
-	for _, tool in ipairs(Player.Backpack:GetChildren()) do
-		if tool:IsA("Tool") and tool.Name == ToolBox.Text then
-			tool.Parent = GetCharacter()
-		end
-	end
-	UpdateEquippedDisplay()
-end)
-
-UnequipBtn.MouseButton1Click:Connect(function()
-	for _, tool in ipairs(GetCharacter():GetChildren()) do
-		if tool:IsA("Tool") and tool.Name == ToolBox.Text then
-			tool.Parent = Player.Backpack
-		end
-	end
-	UpdateEquippedDisplay()
-end)
-
---========================
--- FARM SECTION
---========================
-local farmSection = Section(MainTab,"Farming")
-local FarmBtn = Instance.new("TextButton",farmSection)
-FarmBtn.Size = UDim2.new(1,0,0,40)
-FarmBtn.Text = "Start Farm"
-FarmBtn.Font = Enum.Font.GothamBold
-FarmBtn.BackgroundColor3 = Color3.fromRGB(85,85,85)
-FarmBtn.TextColor3 = Color3.fromRGB(235,235,235)
-Instance.new("UICorner",FarmBtn)
-
-local Farming = false
-FarmBtn.MouseButton1Click:Connect(function()
-	Farming = not Farming
-	FarmBtn.Text = Farming and "Farming..." or "Start Farm"
-	task.spawn(function()
-		while Farming do
-			task.wait(0.6)
-			local char = GetCharacter()
-			for _, tool in ipairs(char:GetChildren()) do
-				if tool:IsA("Tool") and tool.Name == ToolBox.Text then
-					tool:Activate()
-				end
+		-- Disable post-processing
+		for _,v in ipairs(Lighting:GetChildren()) do
+			if v:IsA("BloomEffect")
+			or v:IsA("DepthOfFieldEffect")
+			or v:IsA("SunRaysEffect")
+			or v:IsA("ColorCorrectionEffect")
+			or v:IsA("Atmosphere") then
+				v.Enabled = false
 			end
 		end
-	end)
-end)
 
---========================
--- DUPE TAB
---========================
-local dupeSection = Section(DupeTab,"Dupe Weights")
-local AmountBox = Instance.new("TextBox",dupeSection)
-AmountBox.Size = UDim2.new(1,0,0,36)
-AmountBox.PlaceholderText = "Enter amount"
-AmountBox.Font = Enum.Font.GothamMedium
-AmountBox.TextColor3 = Color3.fromRGB(235,235,235)
-AmountBox.BackgroundColor3 = Color3.fromRGB(85,85,85)
-Instance.new("UICorner",AmountBox)
-
-local DupeBtn = Instance.new("TextButton",dupeSection)
-DupeBtn.Size = UDim2.new(1,0,0,36)
-DupeBtn.Text = "Dupe Weights"
-DupeBtn.Font = Enum.Font.GothamMedium
-DupeBtn.BackgroundColor3 = Color3.fromRGB(90,90,90)
-DupeBtn.TextColor3 = Color3.fromRGB(235,235,235)
-Instance.new("UICorner",DupeBtn)
-
-local ProgressLabel = Instance.new("TextLabel",dupeSection)
-ProgressLabel.Size = UDim2.new(1,0,0,24)
-ProgressLabel.Text = "Progress: 0/0"
-ProgressLabel.Font = Enum.Font.GothamMedium
-ProgressLabel.TextColor3 = Color3.fromRGB(235,235,235)
-ProgressLabel.BackgroundTransparency = 1
-
-local cooldown = false
-DupeBtn.MouseButton1Click:Connect(function()
-	if cooldown then return end
-	cooldown = true
-	local amount = tonumber(AmountBox.Text) or 1
-	if amount < 1 then amount = 1 end
-	ProgressLabel.Text = "Progress: 0/"..amount
-	task.spawn(function()
-		for i = 1, amount do
-			pcall(function()
-				MarketplaceService:SignalPromptGamePassPurchaseFinished(Player,5949054,true)
-			end)
-			ProgressLabel.Text = "Progress: "..i.."/"..amount
-			task.wait(1)
-		end
-		cooldown = false
-	end)
-end)
-
---========================
--- MISC TAB (Dynamic & Scroll Fixed)
---========================
-local MiscContainer = Instance.new("Frame", MiscTab)
-MiscContainer.Size = UDim2.new(1,0,0,0)
-MiscContainer.BackgroundTransparency = 1
-
-local layout = Instance.new("UIListLayout", MiscContainer)
-layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-layout.SortOrder = Enum.SortOrder.LayoutOrder
-layout.Padding = UDim.new(0,10)
-
-layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-	MiscContainer.Size = UDim2.new(1,0,0,layout.AbsoluteContentSize.Y)
-	MiscTab.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 20)
-end)
-
-local function CreateMiscLabel(parent, text)
-	local lbl = Instance.new("TextLabel", parent)
-	lbl.Size = UDim2.new(0.7,0,0,30)
-	lbl.BackgroundColor3 = Color3.fromRGB(75,75,75)
-	lbl.TextColor3 = Color3.fromRGB(235,235,235)
-	lbl.Font = Enum.Font.GothamMedium
-	lbl.TextSize = 16
-	lbl.Text = text
-	return lbl
-end
-
--- Labels
-local uptimeLabel = CreateMiscLabel(MiscContainer,"Uptime: 0s")
-local strengthLabel = CreateMiscLabel(MiscContainer,"Strength: 0")
-local sizeLabel = CreateMiscLabel(MiscContainer,"Size: 0")
-local spsLabel = CreateMiscLabel(MiscContainer,"SPS: 0")
-local spmLabel = CreateMiscLabel(MiscContainer,"SPM: 0")
-local sphLabel = CreateMiscLabel(MiscContainer,"SPH: 0")
-local sp12hLabel = CreateMiscLabel(MiscContainer,"SP12H: 0")
-local sp24hLabel = CreateMiscLabel(MiscContainer,"SP24H: 0")
-
--- Tp To SafeZone Button
-local TpButton = Instance.new("TextButton", MiscContainer)
-TpButton.Size = UDim2.new(0.7,0,0,36)
-TpButton.Text = "Tp To SafeZone"
-TpButton.Font = Enum.Font.GothamBold
-TpButton.TextSize = 16
-TpButton.TextColor3 = Color3.fromRGB(235,235,235)
-TpButton.BackgroundColor3 = Color3.fromRGB(85,85,85)
-Instance.new("UICorner", TpButton)
-
-TpButton.MouseButton1Click:Connect(function()
-	local char = Player.Character
-	if char and char:FindFirstChild("HumanoidRootPart") then
-		char.HumanoidRootPart.CFrame = CFrame.new(-1954.891, 962.503, -5285.201)
-	end
-end)
-
--- Anti AFK Button
-local AntiAFKButton = Instance.new("TextButton", MiscContainer)
-AntiAFKButton.Size = UDim2.new(0.7,0,0,36)
-AntiAFKButton.Text = "Anti AFK"
-AntiAFKButton.Font = Enum.Font.GothamBold
-AntiAFKButton.TextSize = 16
-AntiAFKButton.TextColor3 = Color3.fromRGB(235,235,235)
-AntiAFKButton.BackgroundColor3 = Color3.fromRGB(85,85,85)
-Instance.new("UICorner", AntiAFKButton)
-
-local AntiAFKStatus = Instance.new("TextLabel", MiscContainer)
-AntiAFKStatus.Size = UDim2.new(0.7,0,0,24)
-AntiAFKStatus.Text = "Status: Inactive"
-AntiAFKStatus.Font = Enum.Font.GothamMedium
-AntiAFKStatus.TextSize = 14
-AntiAFKStatus.TextColor3 = Color3.fromRGB(235,235,235)
-AntiAFKStatus.BackgroundTransparency = 1
-AntiAFKStatus.TextScaled = true
-
-local AntiAFKEnabled = false
-AntiAFKButton.MouseButton1Click:Connect(function()
-	if AntiAFKEnabled then return end
-	AntiAFKEnabled = true
-	AntiAFKStatus.Text = "Status: Active (Anti AFK On)"
-	local vu = game:GetService("VirtualUser")
-	Player.Idled:Connect(function()
-		if AntiAFKEnabled then
-			vu:CaptureController()
-			vu:ClickButton2(Vector2.new())
-		end
-	end)
-end)
-
---========================
--- MISC TAB: Dynamic Updates
---========================
-local startTime = tick()
-
-local function FormatNumber(num)
-	if num >= 1e9 then return string.format("%.1fB", num/1e9)
-	elseif num >= 1e6 then return string.format("%.1fM", num/1e6)
-	elseif num >= 1e3 then return string.format("%.1fk", num/1e3)
-	else return tostring(num) end
-end
-
-local lastStrength = 0
-spawn(function()
-	while true do
-		task.wait(1)
-		-- Uptime
-		local elapsed = tick() - startTime
-		local h = math.floor(elapsed/3600)
-		local m = math.floor((elapsed%3600)/60)
-		local s = math.floor(elapsed%60)
-		uptimeLabel.Text = string.format("Uptime: %02dh:%02dm:%02ds", h, m, s)
-
-		-- Strength
-		local strengthVal = 0
-		if Player:FindFirstChild("PlayerGui") and Player.PlayerGui:FindFirstChild("HUD") then
-			local hud = Player.PlayerGui.HUD:FindFirstChild("Frame")
-			if hud and hud:FindFirstChild("StrengthHolder") then
-				local strLbl = hud.StrengthHolder:FindFirstChild("TextLabel")
-				if strLbl then strengthVal = tonumber(strLbl.Text) or 0 end
+		-- Disable particles & effects
+		for _,v in ipairs(workspace:GetDescendants()) do
+			if v:IsA("ParticleEmitter")
+			or v:IsA("Trail")
+			or v:IsA("Beam")
+			or v:IsA("Smoke")
+			or v:IsA("Fire")
+			or v:IsA("Sparkles") then
+				v.Enabled = false
+			end
+			-- Flatten materials
+			if v:IsA("BasePart") then
+				v.Material = Enum.Material.Plastic
+				v.Reflectance = 0
 			end
 		end
-		strengthLabel.Text = "Strength: "..strengthVal
 
-		-- Size
-		local sizeVal = 0
-		if Player:FindFirstChild("leaderstats") and Player.leaderstats:FindFirstChild("Strength") then
-			sizeVal = Player.leaderstats.Strength.Value
+		-- Water
+		Terrain.WaterTransparency = 1
+		Terrain.WaterWaveSize = 0
+		Terrain.WaterWaveSpeed = 0
+		Terrain.WaterReflectance = 0
+
+		SuperLowButton.Text = "Disable SUPER Low Graphics"
+	else
+		-- Restore lighting
+		Lighting.GlobalShadows = OriginalSettings.GlobalShadows
+		Lighting.Technology = OriginalSettings.Technology
+		Lighting.Brightness = OriginalSettings.Brightness
+		Lighting.EnvironmentDiffuseScale = OriginalSettings.EnvironmentDiffuseScale
+		Lighting.EnvironmentSpecularScale = OriginalSettings.EnvironmentSpecularScale
+
+		-- Restore post-processing
+		for _,v in ipairs(Lighting:GetChildren()) do
+			if v:IsA("BloomEffect")
+			or v:IsA("DepthOfFieldEffect")
+			or v:IsA("SunRaysEffect")
+			or v:IsA("ColorCorrectionEffect")
+			or v:IsA("Atmosphere") then
+				v.Enabled = true
+			end
 		end
-		sizeLabel.Text = "Size: "..sizeVal
 
-		-- Strength per second/minute/hour/etc
-		local sps = strengthVal - lastStrength
-		spsLabel.Text = "SPS: "..FormatNumber(sps)
-		spmLabel.Text = "SPM: "..FormatNumber(sps*60)
-		sphLabel.Text = "SPH: "..FormatNumber(sps*3600)
-		sp12hLabel.Text = "SP12H: "..FormatNumber(sps*3600*12)
-		sp24hLabel.Text = "SP24H: "..FormatNumber(sps*3600*24)
-		lastStrength = strengthVal
-	end
-end)
-
---========================
--- UI SETTINGS TAB: Keybind Toggle
---========================
-local KeybindSection = Section(UITab,"UI Toggle Key") -- use your existing Section() function
-
-local CurrentKeyLabel = Instance.new("TextLabel", KeybindSection)
-CurrentKeyLabel.Size = UDim2.new(1,0,0,24)
-CurrentKeyLabel.Text = "Current Key: F1"
-CurrentKeyLabel.Font = Enum.Font.GothamMedium
-CurrentKeyLabel.TextSize = 14
-CurrentKeyLabel.TextColor3 = Color3.fromRGB(235,235,235)
-CurrentKeyLabel.BackgroundTransparency = 1
-
-local SetKeyButton = Instance.new("TextButton", KeybindSection)
-SetKeyButton.Size = UDim2.new(1,0,0,36)
-SetKeyButton.Text = "Set Key"
-SetKeyButton.Font = Enum.Font.GothamMedium
-SetKeyButton.TextSize = 14
-SetKeyButton.TextColor3 = Color3.fromRGB(235,235,235)
-SetKeyButton.BackgroundColor3 = Color3.fromRGB(85,85,85)
-Instance.new("UICorner", SetKeyButton)
-
-local UserInputService = game:GetService("UserInputService")
-local uiToggleKey = "F1" -- default
-
-SetKeyButton.MouseButton1Click:Connect(function()
-	CurrentKeyLabel.Text = "Press any key..."
-	local listener
-	listener = UserInputService.InputBegan:Connect(function(input, gp)
-		if gp then return end
-		if input.UserInputType == Enum.UserInputType.Keyboard then
-			uiToggleKey = input.KeyCode.Name
-			CurrentKeyLabel.Text = "Current Key: "..uiToggleKey
-			listener:Disconnect()
+		-- Restore particles & effects
+		for _,v in ipairs(workspace:GetDescendants()) do
+			if v:IsA("ParticleEmitter")
+			or v:IsA("Trail")
+			or v:IsA("Beam")
+			or v:IsA("Smoke")
+			or v:IsA("Fire")
+			or v:IsA("Sparkles") then
+				v.Enabled = true
+			end
 		end
-	end)
-end)
 
---========================
--- UI Toggle Functionality
---========================
-UserInputService.InputBegan:Connect(function(input, gp)
-	if gp then return end
-	if input.UserInputType == Enum.UserInputType.Keyboard then
-		if input.KeyCode.Name == uiToggleKey then
-			Frame.Visible = not Frame.Visible
-		end
+		-- Restore water
+		Terrain.WaterTransparency = OriginalSettings.WaterTransparency
+		Terrain.WaterWaveSize = OriginalSettings.WaterWaveSize
+		Terrain.WaterWaveSpeed = OriginalSettings.WaterWaveSpeed
+
+		SuperLowButton.Text = "Enable SUPER Low Graphics"
 	end
 end)
-
---========================
--- UI SETTINGS: Reset UI Position
---========================
-local ResetSection = Section(UITab, "UI Utilities")
-
-local ResetUIButton = Instance.new("TextButton", ResetSection)
-ResetUIButton.Size = UDim2.new(1,0,0,36)
-ResetUIButton.Text = "Reset UI Position"
-ResetUIButton.Font = Enum.Font.GothamMedium
-ResetUIButton.TextSize = 14
-ResetUIButton.TextColor3 = Color3.fromRGB(235,235,235)
-ResetUIButton.BackgroundColor3 = Color3.fromRGB(85,85,85)
-Instance.new("UICorner", ResetUIButton)
-
-ResetUIButton.MouseButton1Click:Connect(function()
-	Frame.Position = UDim2.fromScale(0.5, 0.5)
-	Frame.AnchorPoint = Vector2.new(0.5, 0.5)
-end)
-
---========================
--- UI SETTINGS: Draggable Toggle
---========================
-local DragSection = Section(UITab, "UI Interaction")
-
-local DragToggle = Instance.new("TextButton", DragSection)
-DragToggle.Size = UDim2.new(1,0,0,36)
-DragToggle.Text = "Lock UI Drag"
-DragToggle.Font = Enum.Font.GothamMedium
-DragToggle.TextSize = 14
-DragToggle.TextColor3 = Color3.fromRGB(235,235,235)
-DragToggle.BackgroundColor3 = Color3.fromRGB(85,85,85)
-Instance.new("UICorner", DragToggle)
-
-local DragEnabled = true
-DragToggle.MouseButton1Click:Connect(function()
-	DragEnabled = not DragEnabled
-	Frame.Active = DragEnabled
-	Frame.Draggable = DragEnabled
-	DragToggle.Text = DragEnabled and "Lock UI Drag" or "Unlock UI Drag"
-end)
-
---========================
--- UI SETTINGS: Transparency Toggle
---========================
-local TransparencySection = Section(UITab, "UI Appearance")
-
-local TransparencyButton = Instance.new("TextButton", TransparencySection)
-TransparencyButton.Size = UDim2.new(1,0,0,36)
-TransparencyButton.Text = "Enable Transparency"
-TransparencyButton.Font = Enum.Font.GothamMedium
-TransparencyButton.TextSize = 14
-TransparencyButton.TextColor3 = Color3.fromRGB(235,235,235)
-TransparencyButton.BackgroundColor3 = Color3.fromRGB(85,85,85)
-Instance.new("UICorner", TransparencyButton)
-
-local Transparent = false
-TransparencyButton.MouseButton1Click:Connect(function()
-	Transparent = not Transparent
-	Frame.BackgroundTransparency = Transparent and 0.25 or 0
-	TransparencyButton.Text = Transparent and "Disable Transparency" or "Enable Transparency"
-end)
-
---========================
--- UI SETTINGS: Panic Button
---========================
-local PanicSection = Section(UITab, "Panic / Safety")
-
-local PanicButton = Instance.new("TextButton", PanicSection)
-PanicButton.Size = UDim2.new(1,0,0,40)
-PanicButton.Text = "PANIC (Disable Everything)"
-PanicButton.Font = Enum.Font.GothamBold
-PanicButton.TextSize = 14
-PanicButton.TextColor3 = Color3.fromRGB(255,235,235)
-PanicButton.BackgroundColor3 = Color3.fromRGB(120,50,50)
-Instance.new("UICorner", PanicButton)
-
-PanicButton.MouseButton1Click:Connect(function()
-	-- Stop farming
-	Farming = false
-	if FarmBtn then
-		FarmBtn.Text = "Start Farm"
-	end
-
-	-- Disable Anti-AFK
-	if AntiAFKEnabled ~= nil then
-		AntiAFKEnabled = false
-	end
-	if AntiAFKStatus then
-		AntiAFKStatus.Text = "Status: Disabled (Panic)"
-	end
-
-	-- Hide UI
-	Frame.Visible = false
-end)
-
---========================
--- CREDITS TAB CONTENT
---========================
-local CreditsSection = Section(CreditsTab, "Credits")
-
-local CreatorLabel = Instance.new("TextLabel", CreditsSection)
-CreatorLabel.Size = UDim2.new(1,0,0,32)
-CreatorLabel.Text = "Made By Vvx_BaCx on Roblox / Discord"
-CreatorLabel.Font = Enum.Font.GothamBold
-CreatorLabel.TextSize = 16
-CreatorLabel.TextColor3 = Color3.fromRGB(235,235,235)
-CreatorLabel.BackgroundTransparency = 1
-CreatorLabel.TextWrapped = true
-CreatorLabel.TextXAlignment = Enum.TextXAlignment.Center
-
-local UpdateLabel = Instance.new("TextLabel", CreditsSection)
-UpdateLabel.Size = UDim2.new(1,0,0,28)
-UpdateLabel.Text = "Updates Coming Soon..."
-UpdateLabel.Font = Enum.Font.GothamMedium
-UpdateLabel.TextSize = 14
-UpdateLabel.TextColor3 = Color3.fromRGB(200,200,200)
-UpdateLabel.BackgroundTransparency = 1
-UpdateLabel.TextWrapped = true
-UpdateLabel.TextXAlignment = Enum.TextXAlignment.Center
