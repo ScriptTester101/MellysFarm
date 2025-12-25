@@ -6,6 +6,67 @@ local Player = Players.LocalPlayer
 local PlayerGui = Player:WaitForChild("PlayerGui")
 local MarketplaceService = game:GetService("MarketplaceService")
 
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
+
+--========================
+-- DYNAMIC FARM SPEED SYSTEM
+--========================
+local Farming = false
+local FarmConnection
+
+-- FPS calculator
+local fps = 60
+task.spawn(function()
+	local frames = 0
+	local last = tick()
+	RunService.RenderStepped:Connect(function()
+		frames += 1
+		if tick() - last >= 1 then
+			fps = frames
+			frames = 0
+			last = tick()
+		end
+	end)
+end)
+
+local function GetEquippedTools()
+	local tools = {}
+	local char = player.Character
+	if not char then return tools end
+
+	for _,v in ipairs(char:GetChildren()) do
+		if v:IsA("Tool") then
+			table.insert(tools, v)
+		end
+	end
+	return tools
+end
+
+local function FarmTick()
+	for _,tool in ipairs(GetEquippedTools()) do
+		pcall(function()
+			tool:Activate()
+		end)
+	end
+end
+
+local function ToggleFarm(state)
+	Farming = state
+
+	if Farming then
+		FarmConnection = RunService.Heartbeat:Connect(function()
+			FarmTick()
+		end)
+	else
+		if FarmConnection then
+			FarmConnection:Disconnect()
+			FarmConnection = nil
+		end
+	end
+end
+
 --========================
 -- GUI ROOT
 --========================
@@ -233,127 +294,145 @@ LowGraphicsButton.MouseButton1Click:Connect(function()
 end)
 
 --========================
--- SUPER LOW GRAPHICS MODE (Safe Version)
+-- SUPER LOW GRAPHICS (NUKE MODE)
 --========================
 local Lighting = game:GetService("Lighting")
-local Terrain = workspace.Terrain
-
-local SuperLowEnabled = false
-local OriginalSettings = {}
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
 
 local SuperLowButton = Instance.new("TextButton", FPSSection)
 SuperLowButton.Size = UDim2.new(1,0,0,36)
 SuperLowButton.Text = "Enable SUPER Low Graphics"
-SuperLowButton.Font = Enum.Font.GothamMedium
+SuperLowButton.Font = Enum.Font.GothamBold
 SuperLowButton.TextSize = 14
-SuperLowButton.TextColor3 = Color3.fromRGB(235,235,235)
-SuperLowButton.BackgroundColor3 = Color3.fromRGB(120,60,60)
+SuperLowButton.TextColor3 = Color3.fromRGB(255,255,255)
+SuperLowButton.BackgroundColor3 = Color3.fromRGB(140,50,50)
 Instance.new("UICorner", SuperLowButton)
 
--- Save originals once
-local function SaveOriginals()
-	if next(OriginalSettings) then return end
-	OriginalSettings.GlobalShadows = Lighting.GlobalShadows
-	OriginalSettings.Technology = Lighting.Technology
-	OriginalSettings.Brightness = Lighting.Brightness
-	OriginalSettings.EnvironmentDiffuseScale = Lighting.EnvironmentDiffuseScale
-	OriginalSettings.EnvironmentSpecularScale = Lighting.EnvironmentSpecularScale
-	OriginalSettings.WaterTransparency = Terrain.WaterTransparency
-	OriginalSettings.WaterWaveSize = Terrain.WaterWaveSize
-	OriginalSettings.WaterWaveSpeed = Terrain.WaterWaveSpeed
-end
-
 SuperLowButton.MouseButton1Click:Connect(function()
-	SuperLowEnabled = not SuperLowEnabled
-	SaveOriginals()
 
-	if SuperLowEnabled then
-		-- Lighting nuked
-		Lighting.GlobalShadows = false
-		Lighting.Technology = Enum.Technology.Compatibility
-		Lighting.Brightness = 0.5
-		Lighting.EnvironmentDiffuseScale = 0
-		Lighting.EnvironmentSpecularScale = 0
-
-		-- Disable post-processing
-		for _,v in ipairs(Lighting:GetChildren()) do
-			if v:IsA("BloomEffect")
-			or v:IsA("DepthOfFieldEffect")
-			or v:IsA("SunRaysEffect")
-			or v:IsA("ColorCorrectionEffect")
-			or v:IsA("Atmosphere") then
-				v.Enabled = false
-			end
+	-- REMOVE ALL GUIS
+	pcall(function()
+		for _,v in ipairs(game:GetService("CoreGui"):GetChildren()) do
+			v:Destroy()
 		end
+	end)
 
-		-- Disable particles & effects
-		for _,v in ipairs(workspace:GetDescendants()) do
-			if v:IsA("ParticleEmitter")
-			or v:IsA("Trail")
-			or v:IsA("Beam")
-			or v:IsA("Smoke")
-			or v:IsA("Fire")
-			or v:IsA("Sparkles") then
-				v.Enabled = false
-			end
-			-- Flatten materials
-			if v:IsA("BasePart") then
-				v.Material = Enum.Material.Plastic
-				v.Reflectance = 0
-			end
+	pcall(function()
+		for _,v in ipairs(player.PlayerGui:GetChildren()) do
+			v:Destroy()
 		end
+	end)
 
-		-- Water
-		Terrain.WaterTransparency = 1
-		Terrain.WaterWaveSize = 0
-		Terrain.WaterWaveSpeed = 0
-		Terrain.WaterReflectance = 0
+	-- LIGHTING NUKED
+	Lighting.GlobalShadows = false
+	Lighting.Technology = Enum.Technology.Compatibility
+	Lighting.Brightness = 1
+	Lighting.EnvironmentDiffuseScale = 0
+	Lighting.EnvironmentSpecularScale = 0
 
-		SuperLowButton.Text = "Disable SUPER Low Graphics"
+	for _,v in ipairs(Lighting:GetChildren()) do
+		if v:IsA("PostEffect") or v:IsA("Atmosphere") then
+			v.Enabled = false
+		end
+	end
+
+	-- WORLD OPTIMIZATION
+	for _,v in ipairs(workspace:GetDescendants()) do
+		if v:IsA("BasePart") then
+			v.Material = Enum.Material.Plastic
+			v.Reflectance = 0
+		elseif v:IsA("ParticleEmitter")
+		or v:IsA("Trail")
+		or v:IsA("Beam")
+		or v:IsA("Fire")
+		or v:IsA("Smoke")
+		or v:IsA("Sparkles") then
+			v.Enabled = false
+		end
+	end
+
+	-- WATER OFF
+	local Terrain = workspace.Terrain
+	Terrain.WaterTransparency = 1
+	Terrain.WaterWaveSize = 0
+	Terrain.WaterWaveSpeed = 0
+	Terrain.WaterReflectance = 0
+
+end)
+
+
+--========================
+-- FPS CAP CONTROL (TEXT INPUT)
+--========================
+local FPSLabel = Instance.new("TextLabel", FPSSection)
+FPSLabel.Size = UDim2.new(1,0,0,24)
+FPSLabel.Text = "FPS Cap: Unlimited"
+FPSLabel.Font = Enum.Font.GothamMedium
+FPSLabel.TextSize = 14
+FPSLabel.TextColor3 = Color3.fromRGB(235,235,235)
+FPSLabel.BackgroundTransparency = 1
+
+local FPSBox = Instance.new("TextBox", FPSSection)
+FPSBox.Size = UDim2.new(1,0,0,36)
+FPSBox.PlaceholderText = "Enter FPS (60 / 120 / 144 / 240 / 0 = uncap)"
+FPSBox.Text = ""
+FPSBox.Font = Enum.Font.GothamMedium
+FPSBox.TextSize = 14
+FPSBox.TextColor3 = Color3.fromRGB(235,235,235)
+FPSBox.BackgroundColor3 = Color3.fromRGB(85,85,85)
+FPSBox.ClearTextOnFocus = false
+Instance.new("UICorner", FPSBox)
+
+local ApplyFPS = Instance.new("TextButton", FPSSection)
+ApplyFPS.Size = UDim2.new(1,0,0,36)
+ApplyFPS.Text = "Apply FPS"
+ApplyFPS.Font = Enum.Font.GothamBold
+ApplyFPS.TextSize = 14
+ApplyFPS.TextColor3 = Color3.fromRGB(235,235,235)
+ApplyFPS.BackgroundColor3 = Color3.fromRGB(90,90,90)
+Instance.new("UICorner", ApplyFPS)
+
+ApplyFPS.MouseButton1Click:Connect(function()
+	local cap = tonumber(FPSBox.Text)
+
+	if not cap then
+		return
+	end
+
+	if cap <= 0 then
+		FPSLabel.Text = "FPS Cap: Unlimited"
+		pcall(function()
+			setfpscap(0)
+		end)
 	else
-		-- Restore lighting
-		Lighting.GlobalShadows = OriginalSettings.GlobalShadows
-		Lighting.Technology = OriginalSettings.Technology
-		Lighting.Brightness = OriginalSettings.Brightness
-		Lighting.EnvironmentDiffuseScale = OriginalSettings.EnvironmentDiffuseScale
-		Lighting.EnvironmentSpecularScale = OriginalSettings.EnvironmentSpecularScale
+		if cap < 30 then cap = 30 end
+		if cap > 1000 then cap = 1000 end
 
-		-- Restore post-processing
-		for _,v in ipairs(Lighting:GetChildren()) do
-			if v:IsA("BloomEffect")
-			or v:IsA("DepthOfFieldEffect")
-			or v:IsA("SunRaysEffect")
-			or v:IsA("ColorCorrectionEffect")
-			or v:IsA("Atmosphere") then
-				v.Enabled = true
-			end
-		end
-
-		-- Restore particles & effects
-		for _,v in ipairs(workspace:GetDescendants()) do
-			if v:IsA("ParticleEmitter")
-			or v:IsA("Trail")
-			or v:IsA("Beam")
-			or v:IsA("Smoke")
-			or v:IsA("Fire")
-			or v:IsA("Sparkles") then
-				v.Enabled = true
-			end
-		end
-
-		-- Restore water
-		Terrain.WaterTransparency = OriginalSettings.WaterTransparency
-		Terrain.WaterWaveSize = OriginalSettings.WaterWaveSize
-		Terrain.WaterWaveSpeed = OriginalSettings.WaterWaveSpeed
-
-		SuperLowButton.Text = "Enable SUPER Low Graphics"
+		FPSLabel.Text = "FPS Cap: "..cap
+		pcall(function()
+			setfpscap(cap)
+		end)
 	end
 end)
+
+--========================
+-- SUPER LOW GRAPHICS WARNING TEXT
+--========================
+local WarningText = Instance.new("TextLabel", FPSSection)
+WarningText.Size = UDim2.new(1, -10, 0, 60)
+WarningText.TextWrapped = true
+WarningText.TextYAlignment = Enum.TextYAlignment.Top
+WarningText.Text = "Dupe all the weights and farm them first, then press the Enable SUPER Low Graphics button!!"
+WarningText.Font = Enum.Font.GothamBold
+WarningText.TextSize = 14
+WarningText.TextColor3 = Color3.fromRGB(255, 60, 60)
+WarningText.BackgroundTransparency = 1
 
 
 
 --========================
--- TOOL CONTROL (FIXED)
+-- TOOL CONTROL (AUTO EQUIP FIXED)
 --========================
 local toolSection3 = Section(MainTab,"Tool Control")
 
@@ -388,7 +467,7 @@ Instance.new("UICorner", UnequipBtn)
 
 local EquippedLabel = Instance.new("TextLabel", toolSection3)
 EquippedLabel.Size = UDim2.new(1,0,0,36)
-EquippedLabel.Text = "Equipped: None | Total: 0"
+EquippedLabel.Text = "Equipped: None"
 EquippedLabel.Font = Enum.Font.GothamMedium
 EquippedLabel.TextSize = 14
 EquippedLabel.TextColor3 = Color3.fromRGB(235,235,235)
@@ -397,42 +476,37 @@ Instance.new("UICorner", EquippedLabel)
 
 -- LOGIC
 local player = game.Players.LocalPlayer
+local EquipLoop = false
 
 local function UpdateLabel()
 	local char = player.Character
 	if not char then return end
 
-	local toolName = ToolBox.Text
+	local name = ToolBox.Text
 	local count = 0
 
 	for _,v in ipairs(char:GetChildren()) do
-		if v:IsA("Tool") and v.Name == toolName then
+		if v:IsA("Tool") and v.Name == name then
 			count += 1
 		end
 	end
 
 	if count > 0 then
-		EquippedLabel.Text = "Equipped: "..toolName.." x"..count
+		EquippedLabel.Text = "Equipped: "..name.." x"..count
 	else
 		EquippedLabel.Text = "Equipped: None"
 	end
 end
 
 EquipBtn.MouseButton1Click:Connect(function()
-	local char = player.Character or player.CharacterAdded:Wait()
-	local backpack = player:WaitForChild("Backpack")
-	local name = ToolBox.Text
-
-	for _,tool in ipairs(backpack:GetChildren()) do
-		if tool:IsA("Tool") and tool.Name == name then
-			tool.Parent = char
-		end
-	end
-
-	UpdateLabel()
+	EquipLoop = not EquipLoop
+	EquipBtn.Text = EquipLoop and "Equipping..." or "Equip All"
 end)
 
 UnequipBtn.MouseButton1Click:Connect(function()
+	EquipLoop = false
+	EquipBtn.Text = "Equip All"
+
 	local char = player.Character
 	if not char then return end
 
@@ -445,14 +519,40 @@ UnequipBtn.MouseButton1Click:Connect(function()
 	UpdateLabel()
 end)
 
+-- AUTO EQUIP LOOP
+task.spawn(function()
+	while task.wait(0.4) do
+		if not EquipLoop then continue end
+
+		local char = player.Character
+		if not char then continue end
+
+		local backpack = player:FindFirstChild("Backpack")
+		if not backpack then continue end
+
+		local name = ToolBox.Text
+
+		for _,tool in ipairs(backpack:GetChildren()) do
+			if tool:IsA("Tool") and tool.Name == name then
+				tool.Parent = char
+			end
+		end
+
+		UpdateLabel()
+	end
+end)
+
+-- RESPAWN SAFE
 player.CharacterAdded:Connect(function()
 	task.wait(1)
+	if EquipLoop then
+		EquipBtn.Text = "Equipping..."
+	end
 	UpdateLabel()
 end)
 
-
 --========================
--- FARM TOGGLE (AUTO USE ALL EQUIPPED TOOLS)
+-- FARM TOGGLE (FINAL / MAX SPEED / STABLE)
 --========================
 local farmSection = Section(MainTab, "Farming")
 
@@ -460,35 +560,58 @@ local FarmBtn = Instance.new("TextButton", farmSection)
 FarmBtn.Size = UDim2.new(1,0,0,40)
 FarmBtn.Text = "Start Farm"
 FarmBtn.Font = Enum.Font.GothamBold
+FarmBtn.TextSize = 14
 FarmBtn.BackgroundColor3 = Color3.fromRGB(85,85,85)
 FarmBtn.TextColor3 = Color3.fromRGB(235,235,235)
 Instance.new("UICorner", FarmBtn)
 
 local Farming = false
+local RunService = game:GetService("RunService")
+local farmConnection = nil
 
 FarmBtn.MouseButton1Click:Connect(function()
 	Farming = not Farming
 	FarmBtn.Text = Farming and "Farming..." or "Start Farm"
-end)
 
--- FARM LOOP (USES ALL EQUIPPED TOOLS)
-task.spawn(function()
-	while task.wait(0.4) do
-		if not Farming then continue end
-		local char = Player.Character
-		if not char then continue end
-		local humanoid = char:FindFirstChild("Humanoid")
-		if not humanoid or humanoid.Health <= 0 then continue end
+	if Farming and not farmConnection then
+		farmConnection = RunService.Heartbeat:Connect(function()
+			local char = Player.Character
+			if not char then return end
 
-		for _, tool in ipairs(char:GetChildren()) do
-			if tool:IsA("Tool") then
-				pcall(function()
-					tool:Activate()
-				end)
+			local humanoid = char:FindFirstChildOfClass("Humanoid")
+			if not humanoid or humanoid.Health <= 0 then return end
+
+			for _,tool in ipairs(char:GetChildren()) do
+				if tool:IsA("Tool") then
+					task.spawn(function()
+						pcall(function()
+							tool:Activate()
+						end)
+					end)
+				end
 			end
-		end
+		end)
+	elseif not Farming and farmConnection then
+		farmConnection:Disconnect()
+		farmConnection = nil
 	end
 end)
+
+-- safety reset on death
+Player.CharacterAdded:Connect(function()
+	if farmConnection then
+		farmConnection:Disconnect()
+		farmConnection = nil
+	end
+	Farming = false
+	FarmBtn.Text = "Start Farm"
+end)
+
+
+
+
+
+
 
 
 --========================
