@@ -10,6 +10,45 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 
+-- FARM STATE (DO NOT MOVE)
+local Farming = false
+local FarmConnection = nil
+
+local function StartFarm()
+	if FarmConnection then return end -- already running
+
+	Farming = true
+	FarmConnection = RunService.Heartbeat:Connect(function()
+		if not Farming then return end
+
+		local char = Player.Character
+		if not char then return end
+
+		local humanoid = char:FindFirstChildOfClass("Humanoid")
+		if not humanoid or humanoid.Health <= 0 then return end
+
+		for _,tool in ipairs(char:GetChildren()) do
+			if tool:IsA("Tool") then
+				pcall(tool.Activate, tool)
+			end
+		end
+	end)
+end
+
+local function StopFarm()
+	Farming = false
+	if FarmConnection then
+		FarmConnection:Disconnect()
+		FarmConnection = nil
+	end
+end
+
+
+-- FARM STATE (SINGLE SOURCE OF TRUTH)
+local Farming = false
+local FarmConnection = nil
+
+
 --========================
 -- DYNAMIC FARM SPEED SYSTEM
 --========================
@@ -147,6 +186,7 @@ end
 local MainTab = CreateTab("Main")
 local MiscTab = CreateTab("Misc")
 local DupeTab = CreateTab("Dupe")
+local PingTab = CreateTab("Ping Limiter") -- NEW TAB
 local FPSTab = CreateTab("FPS") -- 👈 NEW TAB (under Dupe)
 local UITab = CreateTab("UI Settings")
 local CreditsTab = CreateTab("Credits")
@@ -552,7 +592,7 @@ player.CharacterAdded:Connect(function()
 end)
 
 --========================
--- FARM TOGGLE (FINAL / MAX SPEED / STABLE)
+-- FARM TOGGLE (FIXED / STABLE / NO DUPES)
 --========================
 local farmSection = Section(MainTab, "Farming")
 
@@ -565,47 +605,46 @@ FarmBtn.BackgroundColor3 = Color3.fromRGB(85,85,85)
 FarmBtn.TextColor3 = Color3.fromRGB(235,235,235)
 Instance.new("UICorner", FarmBtn)
 
-local Farming = false
-local RunService = game:GetService("RunService")
 local farmConnection = nil
 
-FarmBtn.MouseButton1Click:Connect(function()
-	Farming = not Farming
-	FarmBtn.Text = Farming and "Farming..." or "Start Farm"
-
-	if Farming and not farmConnection then
-		farmConnection = RunService.Heartbeat:Connect(function()
-			local char = Player.Character
-			if not char then return end
-
-			local humanoid = char:FindFirstChildOfClass("Humanoid")
-			if not humanoid or humanoid.Health <= 0 then return end
-
-			for _,tool in ipairs(char:GetChildren()) do
-				if tool:IsA("Tool") then
-					task.spawn(function()
-						pcall(function()
-							tool:Activate()
-						end)
-					end)
-				end
-			end
-		end)
-	elseif not Farming and farmConnection then
-		farmConnection:Disconnect()
-		farmConnection = nil
-	end
-end)
-
--- safety reset on death
-Player.CharacterAdded:Connect(function()
+local function StopFarm()
+	Farming = false
 	if farmConnection then
 		farmConnection:Disconnect()
 		farmConnection = nil
 	end
-	Farming = false
 	FarmBtn.Text = "Start Farm"
+end
+
+FarmBtn.MouseButton1Click:Connect(function()
+	if Farming then
+		StopFarm()
+		FarmBtn.Text = "Start Farm"
+	else
+		StartFarm()
+		FarmBtn.Text = "Farming..."
+	end
 end)
+
+
+-- Safety reset on death
+Player.CharacterAdded:Connect(function()
+	StopFarm()
+end)
+
+-- Info text under Farm button
+local FarmInfo = Instance.new("TextLabel", farmSection)
+FarmInfo.Size = UDim2.new(1, -10, 0, 40)
+FarmInfo.TextWrapped = true
+FarmInfo.TextYAlignment = Enum.TextYAlignment.Top
+FarmInfo.TextXAlignment = Enum.TextXAlignment.Center
+FarmInfo.Text = "⚠ Use with equipped weights only.\nHigh FPS recommended for best results."
+FarmInfo.Font = Enum.Font.GothamBold
+FarmInfo.TextSize = 13
+FarmInfo.TextColor3 = Color3.fromRGB(255, 60, 60) -- RED
+FarmInfo.BackgroundTransparency = 1
+
+
 
 
 
@@ -659,6 +698,74 @@ DupeBtn.MouseButton1Click:Connect(function()
 		cooldown = false
 	end)
 end)
+
+--========================
+-- PING LIMITER TAB
+--========================
+local PingSection = Section(PingTab, "Ping Limiter")
+
+-- Current Ping Label
+local CurrentPingLabel = Instance.new("TextLabel", PingSection)
+CurrentPingLabel.Size = UDim2.new(1,0,0,30)
+CurrentPingLabel.Text = "Current Ping: 0ms"
+CurrentPingLabel.Font = Enum.Font.GothamMedium
+CurrentPingLabel.TextSize = 16
+CurrentPingLabel.TextColor3 = Color3.fromRGB(235,235,235)
+CurrentPingLabel.BackgroundTransparency = 1
+
+-- Ping Cap Input
+local PingBox = Instance.new("TextBox", PingSection)
+PingBox.Size = UDim2.new(1,0,0,36)
+PingBox.PlaceholderText = "Enter max ping (ms)"
+PingBox.Text = ""
+PingBox.Font = Enum.Font.GothamMedium
+PingBox.TextSize = 14
+PingBox.TextColor3 = Color3.fromRGB(235,235,235)
+PingBox.BackgroundColor3 = Color3.fromRGB(85,85,85)
+PingBox.ClearTextOnFocus = false
+Instance.new("UICorner", PingBox)
+
+-- Toggle Button
+local PingToggle = Instance.new("TextButton", PingSection)
+PingToggle.Size = UDim2.new(1,0,0,36)
+PingToggle.Text = "Ping Limiter: OFF"
+PingToggle.Font = Enum.Font.GothamBold
+PingToggle.TextSize = 14
+PingToggle.TextColor3 = Color3.fromRGB(235,235,235)
+PingToggle.BackgroundColor3 = Color3.fromRGB(90,90,90)
+Instance.new("UICorner", PingToggle)
+
+-- Logic
+local PingLimiterEnabled = false
+local PingCap = 250 -- default max ping (ms)
+
+PingToggle.MouseButton1Click:Connect(function()
+	PingLimiterEnabled = not PingLimiterEnabled
+	PingToggle.Text = "Ping Limiter: "..(PingLimiterEnabled and "ON" or "OFF")
+end)
+
+-- Update PingCap when input changes
+PingBox.FocusLost:Connect(function(enterPressed)
+	local val = tonumber(PingBox.Text)
+	if val and val > 0 then
+		PingCap = val
+	end
+end)
+
+-- Ping check loop
+spawn(function()
+	while task.wait(1) do
+		local ping = math.floor(game:GetService("Players").LocalPlayer:GetNetworkPing() * 1000) -- in ms
+		CurrentPingLabel.Text = "Current Ping: "..ping.."ms".." | Cap: "..PingCap.."ms"
+		if PingLimiterEnabled and ping > PingCap then
+			-- Option 1: Reduce FPS to lower network stress (example)
+			pcall(function() setfpscap(30) end)
+		else
+			pcall(function() setfpscap(0) end) -- restore uncapped
+		end
+	end
+end)
+
 
 --========================
 -- MISC TAB (Dynamic & Scroll Fixed)
